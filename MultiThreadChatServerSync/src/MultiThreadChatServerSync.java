@@ -22,10 +22,10 @@ public class MultiThreadChatServerSync {
 		// The default port number.
 		int portNumber = 2222;
 		if (args.length < 1) {
-			System.out
-					.println("Usage: java MultiThreadChatServerSync <portNumber>\n"
-							+ "Now using port number=" + portNumber);
+			System.out.println("Usage: java MultiThreadChatServerSync <portNumber>\n"
+							+ "Now using port number (default)=" + portNumber);
 		} else {
+			
 			portNumber = Integer.valueOf(args[0]).intValue();
 		}
 		/*
@@ -35,6 +35,7 @@ public class MultiThreadChatServerSync {
 		 */
 		try {
 			serverSocket = new ServerSocket(portNumber);
+			System.out.println("Server started with port number= "+portNumber);
 		} catch (IOException e) {
 			System.out.println(e);
 		}
