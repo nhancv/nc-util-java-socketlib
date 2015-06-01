@@ -1,8 +1,8 @@
 import java.io.BufferedReader;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
@@ -11,9 +11,9 @@ public class MultiThreadChatClient implements Runnable {
 	// The client socket
 	private static Socket clientSocket = null;
 	// The output stream
-	private static PrintStream os = null;
+	private static PrintWriter os = null;
 	// The input stream
-	private static DataInputStream is = null;
+	private static BufferedReader is = null;
 	private static BufferedReader inputLine = null;
 	private static boolean closed = false;
 
@@ -24,12 +24,7 @@ public class MultiThreadChatClient implements Runnable {
 		String host = "localhost";
 
 		if (args.length < 2) {
-			System.out
-					.println("Usage: java MultiThreadChatClient <host> <portNumber>\n"
-							+ "Now using host="
-							+ host
-							+ ", portNumber="
-							+ portNumber);
+			System.out.println("Usage: java MultiThreadChatClient <host> <portNumber>\n" + "Now using host=" + host + ", portNumber=" + portNumber);
 		} else {
 			host = args[0];
 			portNumber = Integer.valueOf(args[1]).intValue();
@@ -41,14 +36,12 @@ public class MultiThreadChatClient implements Runnable {
 		try {
 			clientSocket = new Socket(host, portNumber);
 			inputLine = new BufferedReader(new InputStreamReader(System.in));
-			os = new PrintStream(clientSocket.getOutputStream());
-			is = new DataInputStream(clientSocket.getInputStream());
+			os = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream(), "UTF-8"), true);
+			is = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(), "UTF-8"));
 		} catch (UnknownHostException e) {
 			System.err.println("Don't know abouthost " + host);
 		} catch (IOException e) {
-			System.err
-					.println("Couldn't get I/O for the connection to the host "
-							+ host);
+			System.err.println("Couldn't get I/O for the connection to the host " + host);
 		}
 		/*
 		 * If everything has been initialized then we want to write some data to

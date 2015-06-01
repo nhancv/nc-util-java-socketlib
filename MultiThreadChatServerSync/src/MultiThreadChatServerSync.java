@@ -1,6 +1,9 @@
-import java.io.DataInputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -22,10 +25,9 @@ public class MultiThreadChatServerSync {
 		// The default port number.
 		int portNumber = 2222;
 		if (args.length < 1) {
-			System.out.println("Usage: java MultiThreadChatServerSync <portNumber>\n"
-							+ "Now using port number (default)=" + portNumber);
+			System.out.println("Usage: java MultiThreadChatServerSync <portNumber>\n" + "Now using port number (default)=" + portNumber);
 		} else {
-			
+
 			portNumber = Integer.valueOf(args[0]).intValue();
 		}
 		/*
@@ -35,7 +37,7 @@ public class MultiThreadChatServerSync {
 		 */
 		try {
 			serverSocket = new ServerSocket(portNumber);
-			System.out.println("Server started with port number= "+portNumber);
+			System.out.println("Server started with port number= " + portNumber);
 		} catch (IOException e) {
 			System.out.println(e);
 		}
@@ -50,20 +52,19 @@ public class MultiThreadChatServerSync {
 				int i = 0;
 				for (i = 0; i < maxClientsCount; i++) {
 					if (threads[i] == null) {
-						(threads[i] = new clientThread(clientSocket, threads))
-								.start();
+						(threads[i] = new clientThread(clientSocket, threads)).start();
+						System.out.println("Thread " + (i + 1) + " in " + maxClientsCount);
 						break;
 					}
 				}
 				if (i == maxClientsCount) {
-					PrintStream os = new PrintStream(
-							clientSocket.getOutputStream());
+					PrintStream os = new PrintStream(clientSocket.getOutputStream());
 					os.println("Server too busy. Try later. ");
 					os.close();
 					clientSocket.close();
 				}
 			} catch (IOException e) {
-				System.out.println(e);
+				System.out.println("Create clientSocket error" + e);
 			}
 		}
 	}
@@ -81,8 +82,8 @@ public class MultiThreadChatServerSync {
  */
 class clientThread extends Thread {
 	private String clientName = null;
-	private DataInputStream is = null;
-	private PrintStream os = null;
+	private BufferedReader is = null;
+	private PrintWriter os = null;
 	private Socket clientSocket = null;
 	private final clientThread[] threads;
 	private int maxClientsCount;
@@ -101,87 +102,99 @@ class clientThread extends Thread {
 			/*
 			 * Create input and output streams for this client.
 			 */
-			is = new DataInputStream(clientSocket.getInputStream());
-			os = new PrintStream(clientSocket.getOutputStream());
-			String name;
-			while (true) {
-				os.println("Enter your name. ");
-				name = is.readLine().trim();
-				if (name.indexOf('@') == -1) {
-					break;
-				} else {
-					os.println("The name should not contain '@' character.");
+			is = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(), "UTF-8"));
+			os = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream(), "UTF-8"), true);
+			String name = "";
+			try {
+				while (true) {
+					os.println("Enter your name. ");
+					name = is.readLine().trim();
+					if (name.indexOf('@') == -1) {
+						break;
+					} else {
+						os.println("The name should not contain '@' character.");
+					}
 				}
-			}
 
-			/* Welcome the new the client. */
-			os.println("Welcome " + name
-					+ " to our chat room.\nTo leave enter /quit in a new line.");
-			synchronized (this) {
-				for (int i = 0; i < maxClientsCount; i++) {
-					if (threads[i] != null && threads[i] == this) {
-						clientName = "@" + name;
+				/* Welcome the new the client. */
+				os.println("Welcome " + name + " to our chat room.\nTo leave enter /quit in a new line.");
+				System.out.println("Welcome " + name + "(" + clientSocket.getInetAddress().getHostAddress() + ")" + " to our chat room.");
+				synchronized (this) {
+					for (int i = 0; i < maxClientsCount; i++) {
+						if (threads[i] != null && threads[i] == this) {
+							clientName = "@" + name;
+							break;
+						}
+					}
+					for (int i = 0; i < maxClientsCount; i++) {
+						if (threads[i] != null && threads[i] != this) {
+							threads[i].os.println("*** A new user " + name + " entered the chat room !!! ^^^^");
+						}
+					}
+
+				}
+
+				/* Start the conversation. */
+				while (true) {
+					String line = is.readLine();
+					if (line.startsWith("/quit")) {
 						break;
 					}
-				}
-				for (int i = 0; i < maxClientsCount; i++) {
-					if (threads[i] != null && threads[i] != this) {
-						threads[i].os.println("*** A new user " + name
-								+ " entered the chat room !!! ^^^^");
-					}
-				}
-			}
-			/* Start the conversation. */
-			while (true) {
-				String line = is.readLine();
-				if (line.startsWith("/quit")) {
-					break;
-				}
-				/* If the message is private sent it to the given client. */
-				if (line.startsWith("@")) {
-					String[] words = line.split("\\s", 2);
-					if (words.length > 1 && words[1] != null) {
-						words[1] = words[1].trim();
-						if (!words[1].isEmpty()) {
-							synchronized (this) {
-								for (int i = 0; i < maxClientsCount; i++) {
-									if (threads[i] != null
-											&& threads[i] != this
-											&& threads[i].clientName != null
-											&& threads[i].clientName
-													.equals(words[0])) {
-										threads[i].os.println("<" + name + "> "
-												+ words[1]);
-										/*
-										 * Echo this message to let the client
-										 * know the private message was sent.
-										 */
-										this.os.println(">" + name + "> "
-												+ words[1]);
-										break;
+					/* If the message is private sent it to the given client. */
+					if (line.startsWith("@")) {
+						String[] words = line.split("\\s", 2);
+						if (words.length > 1 && words[1] != null) {
+							words[1] = words[1].trim();
+							if (!words[1].isEmpty()) {
+								synchronized (this) {
+									for (int i = 0; i < maxClientsCount; i++) {
+										if (threads[i] != null && threads[i] != this && threads[i].clientName != null && threads[i].clientName.equals(words[0])) {
+											threads[i].os.println("<" + name + "> " + words[1]);
+											/*
+											 * Echo this message to let the
+											 * client know the private message
+											 * was sent.
+											 */
+											this.os.println(">" + name + "> " + words[1]);
+											break;
+										}
 									}
 								}
 							}
 						}
-					}
-				} else {
-					/* The message is public, broadcast it to all other clients. */
-					synchronized (this) {
-						for (int i = 0; i < maxClientsCount; i++) {
-							if (threads[i] != null
-									&& threads[i].clientName != null) {
-								threads[i].os.println("<" + name + "> " + line);
+					} else {
+						/*
+						 * The message is public, broadcast it to all other
+						 * clients.
+						 */
+						synchronized (this) {
+							for (int i = 0; i < maxClientsCount; i++) {
+								if (threads[i] != null && threads[i].clientName != null) {
+									threads[i].os.println("<" + name + "> " + line);
+								}
 							}
 						}
 					}
 				}
+			} catch (Exception exeption) {
+				synchronized (this) {
+					for (int i = 0; i < maxClientsCount; i++) {
+						if (threads[i] == this) {
+							threads[i] = null;
+							System.out.println("Thread " + (i + 1) + " has been interrupted");
+							break;
+						}
+					}
+				}
+				is.close();
+				os.close();
+				clientSocket.close();
+				return;
 			}
 			synchronized (this) {
 				for (int i = 0; i < maxClientsCount; i++) {
-					if (threads[i] != null && threads[i] != this
-							&& threads[i].clientName != null) {
-						threads[i].os.println("*** The user " + name
-								+ " is leaving the chat room !!! ***");
+					if (threads[i] != null && threads[i] != this && threads[i].clientName != null) {
+						threads[i].os.println("*** The user " + name + " is leaving the chat room !!! ***");
 					}
 				}
 			}
@@ -204,7 +217,22 @@ class clientThread extends Thread {
 			os.close();
 			clientSocket.close();
 		} catch (IOException e) {
-			System.out.println("IOException: " + e);
+			try {
+				synchronized (this) {
+					for (int i = 0; i < maxClientsCount; i++) {
+						if (threads[i] == this) {
+							threads[i] = null;
+							System.out.println("Thread " + (i + 1) + " has been interrupted");
+							break;
+						}
+					}
+				}
+				is.close();
+				os.close();
+				clientSocket.close();
+			} catch (Exception ex) {
+				System.out.println("Run method in thread - Exception: " + ex);
+			}
 		}
 	}
 }
